@@ -3,30 +3,58 @@ import cv2
 import numpy as np
 from PIL import Image
 
-def get_count(code):
-    mapping = {"1+": 2, "1+1": 3, "1+2": 4, "Vacant": 0}
-    return mapping.get(code, 0)
+# 1. NEW LOGIC: Counting Packets
+def calculate_packets(occupancy_dict):
+    doubles = 0
+    singles = 0
+    for code in occupancy_dict.values():
+        if code == "1+":
+            doubles += 1
+        elif code == "1+1":
+            doubles += 1
+            singles += 1
+        elif code == "1+2":
+            doubles += 1
+            singles += 2
+    return doubles, singles
 
-st.title("🧺 Laundry Highlight Scanner")
+st.set_page_config(page_title="Laundry Packet Counter", layout="centered")
+st.title("🧺 Laundry Packet Counter")
 
-# Upload from Gallery
-uploaded_file = st.file_uploader("Upload photo", type=["png", "jpg", "jpeg"])
+# 2. PHOTO UPLOAD
+uploaded_file = st.file_uploader("Upload bungalow list", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
     img = Image.open(uploaded_file)
-    img_np = np.array(img)
-    st.image(img, caption="Original List", use_container_width=True)
-    
-    # Simple color check for green highlighter
-    hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
-    mask = cv2.inRange(hsv, np.array([35, 40, 40]), np.array([85, 255, 255]))
-    st.image(mask, caption="Highlight Detection Map", use_container_width=True)
+    st.image(img, caption="Current List", use_container_width=True)
 
-# Example list for your bungalows
-bungalows = ["277", "187", "142", "138", "175"] 
-total = 0
-for b in bungalows:
-    val = st.selectbox(f"Bungalow {b}", ["Vacant", "1+", "1+1", "1+2"])
-    total += get_count(val)
+# 3. BUNGALOW SELECTION
+st.divider()
+st.subheader("Confirm Bungalow Status")
 
-st.sidebar.metric("Total Laundry Sets", total)
+bungalows = ["277", "279", "280", "142", "143", "186", "187"]
+
+if 'occupancy' not in st.session_state:
+    st.session_state.occupancy = {b: "Vacant" for b in bungalows}
+
+cols = st.columns(2)
+for i, b_id in enumerate(bungalows):
+    with cols[i % 2]:
+        st.session_state.occupancy[b_id] = st.selectbox(
+            f"Bungalow {b_id}", 
+            ["Vacant", "1+", "1+1", "1+2"], 
+            key=f"b_{b_id}"
+        )
+
+# 4. THE PACKING LIST (The New Part!)
+total_doubles, total_singles = calculate_packets(st.session_state.occupancy)
+
+st.divider()
+st.header("📦 Today's Packing List")
+c1, c2 = st.columns(2)
+with c1:
+    st.metric("Double Packets", total_doubles)
+with c2:
+    st.metric("Single Packets", total_singles)
+
+st.success(f"Total Linen Sets: {total_doubles + total_singles}")
