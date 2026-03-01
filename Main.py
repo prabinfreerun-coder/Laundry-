@@ -1,57 +1,54 @@
 import streamlit as st
+from PIL import Image
 
-# --- CORE LOGIC ---
-def calculate_guests(code):
-    """Translates the bungalow code into a guest count."""
-    mapping = {
-        "1+": 2,    # Main bedroom only
-        "1+1": 3,   # Main + 1 spare
-        "1+2": 4,   # Main + 2 spare
-        "Vacant": 0
-    }
+# --- LOGIC ---
+def get_count_from_code(code):
+    """Calculates guests based on your resort rules."""
+    mapping = {"1+": 2, "1+1": 3, "1+2": 4, "Vacant": 0}
     return mapping.get(code, 0)
 
-# --- APP SETUP ---
-st.set_page_config(page_title="Laundry Tracker", layout="wide")
-st.title("🏨 Resort Laundry Tracker")
+# --- APP INTERFACE ---
+st.set_page_config(page_title="Laundry AI", page_icon="🧺")
+st.title("🧺 Resort Laundry Scanner")
 
-# We will simulate a small section of your list for this example
-bungalow_list = ["277", "279", "280", "142", "143", "144"]
+# 1. THE CAMERA FEATURE
+st.subheader("Step 1: Take Photo of List")
+picture = st.camera_input("Scan your paper list")
 
-# --- SIDEBAR: INPUT DATA ---
-st.sidebar.header("Update Bungalow Status")
-selected_id = st.sidebar.selectbox("Select Bungalow Number", bungalow_list)
-status = st.sidebar.radio("Current Occupancy", ["Vacant", "1+", "1+1", "1+2"])
+if picture:
+    st.image(picture, caption="Last Scanned Image", use_container_width=True)
+    st.info("Photo captured! You can now use the manual toggles below to confirm the count.")
 
-# In a real app, we'd save this to a file. For now, let's use 'Session State'
-if 'data' not in st.session_state:
-    st.session_state.data = {b: "Vacant" for b in bungalow_list}
+# 2. THE TRACKER
+st.divider()
+st.subheader("Step 2: Guest Count Tracker")
 
-if st.sidebar.button("Update List"):
-    st.session_state.data[selected_id] = status
-    st.sidebar.success(f"Updated Bungalow {selected_id}!")
+# Replace this list with your actual bungalow numbers later!
+bungalows = ["277", "279", "142", "143"]
 
-# --- MAIN DISPLAY ---
-col1, col2 = st.columns(2)
+if 'occupancy' not in st.session_state:
+    st.session_state.occupancy = {b: "Vacant" for b in bungalows}
 
+cols = st.columns(2)
 total_guests = 0
-occupied_count = 0
 
-with col1:
-    st.subheader("Current Occupancy List")
-    for b_id, code in st.session_state.data.items():
-        guests = calculate_guests(code)
-        total_guests += guests
-        if code != "Vacant":
-            occupied_count += 1
-            st.write(f"✅ **Bungalow {b_id}**: {code} ({guests} guests)")
-        else:
-            st.write(f"⚪ Bungalow {b_id}: Vacant")
+for i, b_num in enumerate(bungalows):
+    with cols[i % 2]:
+        choice = st.selectbox(
+            f"Bungalow {b_num}",
+            ["Vacant", "1+", "1+1", "1+2"],
+            key=f"select_{b_num}",
+            index=["Vacant", "1+", "1+1", "1+2"].index(st.session_state.occupancy[b_num])
+        )
+        st.session_state.occupancy[b_num] = choice
+        total_guests += get_count_from_code(choice)
 
-with col2:
-    st.subheader("Laundry Requirements")
-    st.metric("Total Occupied Bungalows", occupied_count)
-    st.metric("Total Guests to Prep For", total_guests)
-    
-    if total_guests > 0:
-        st.info(f"💡 You need roughly {total_guests} sets of towels today!")
+# 3. SUMMARY
+st.divider()
+st.metric("Total Guests Today", total_guests)
+st.write(f"🧤 Prepare **{total_guests}** sets of linens.")
+
+if st.button("Reset List"):
+    for b in bungalows:
+        st.session_state.occupancy[b] = "Vacant"
+    st.rerun()
