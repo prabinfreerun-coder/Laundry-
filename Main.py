@@ -1,53 +1,60 @@
 import streamlit as st
+import cv2
+import numpy as np
 from PIL import Image
 
 # --- LOGIC ---
 def get_count_from_code(code):
-    """Calculates guests based on your resort rules."""
+    """Calculates guests: 1+ = 2, 1+1 = 3, 1+2 = 4."""
     mapping = {"1+": 2, "1+1": 3, "1+2": 4, "Vacant": 0}
     return mapping.get(code, 0)
-# --- APP INTERFACE ---
-st.set_page_config(page_title="Laundry AI", page_icon="🧺")
-st.title("🧺 Resort Laundry Scanner")
 
-# 1. THE CAMERA FEATURE
-st.subheader("Step 1: Take Photo of List")
-picture = st.camera_input("Scan your paper list")
+st.set_page_config(page_title="Laundry Gallery Scanner", page_icon="🖼️")
+st.title("🖼️ Laundry Gallery Scanner")
 
-if picture:
-    st.image(picture, caption="Last Scanned Image", use_container_width=True)
-    st.info("Photo captured! You can now use the manual toggles below to confirm the count.")
+# --- STEP 1: UPLOAD FROM PHONE ---
+st.subheader("Step 1: Upload List from Gallery")
+# This line allows you to pick a photo from your iPhone library
+uploaded_file = st.file_uploader("Choose a photo of the laundry list", type=["png", "jpg", "jpeg"])
 
-# 2. THE TRACKER
+if uploaded_file is not None:
+    # Convert the file to an image the AI can see
+    img = Image.open(uploaded_file)
+    img_np = np.array(img)
+    
+    # Show the photo on your screen
+    st.image(img, caption="Uploaded Image", use_container_width=True)
+    
+    # GREEN COLOR DETECTION (Detecting your highlighter)
+    hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
+    lower_green = np.array([35, 40, 40])
+    upper_green = np.array([85, 255, 255])
+    mask = cv2.inRange(hsv, lower_green, upper_green)
+    
+    st.write("### Detection Highlight Map:")
+    st.image(mask, caption="This shows where you used the green marker", use_container_width=True)
+
+# --- STEP 2: BUNGALOW TRACKER ---
 st.divider()
-st.subheader("Step 2: Guest Count Tracker")
+st.subheader("Step 2: Final Guest Count")
 
-# Replace this list with your actual bungalow numbers later!
-bungalows = ["277", "279", "142", "143"]
+# The list of bungalows from your document
+bungalows = ["277", "279", "280", "142", "143", "186", "187"]
 
 if 'occupancy' not in st.session_state:
     st.session_state.occupancy = {b: "Vacant" for b in bungalows}
 
-cols = st.columns(2)
 total_guests = 0
+cols = st.columns(2)
 
 for i, b_num in enumerate(bungalows):
     with cols[i % 2]:
         choice = st.selectbox(
-            f"Bungalow {b_num}",
-            ["Vacant", "1+", "1+1", "1+2"],
-            key=f"select_{b_num}",
-            index=["Vacant", "1+", "1+1", "1+2"].index(st.session_state.occupancy[b_num])
+            f"Bungalow {b_num}", 
+            ["Vacant", "1+", "1+1", "1+2"], 
+            key=f"sel_{b_num}"
         )
-        st.session_state.occupancy[b_num] = choice
         total_guests += get_count_from_code(choice)
 
-# 3. SUMMARY
-st.divider()
-st.metric("Total Guests Today", total_guests)
-st.write(f"🧤 Prepare **{total_guests}** sets of linens.")
-
-if st.button("Reset List"):
-    for b in bungalows:
-        st.session_state.occupancy[b] = "Vacant"
-    st.rerun()
+st.sidebar.metric("Total Guest Count", total_guests)
+st.sidebar.success(f"🧺 Prepare {total_guests} linen sets!")
