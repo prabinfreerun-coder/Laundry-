@@ -6,7 +6,6 @@ def get_count_from_code(code):
     """Calculates guests based on your resort rules."""
     mapping = {"1+": 2, "1+1": 3, "1+2": 4, "Vacant": 0}
     return mapping.get(code, 0)
-t
 # --- APP INTERFACE ---
 st.set_page_config(page_title="Laundry AI", page_icon="🧺")
 st.title("🧺 Resort Laundry Scanner")
